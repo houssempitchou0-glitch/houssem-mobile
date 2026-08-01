@@ -190,6 +190,14 @@
   .specs{color:var(--muted); font-size:.76rem; display:flex; gap:.6rem; flex-wrap:wrap;}
   .specs span{display:flex; align-items:center; gap:.3rem;}
   .specs span::before{content:''; width:3px; height:3px; border-radius:50%; background:var(--blue);}
+  .color-row{display:flex; align-items:center; gap:.5rem;}
+  .color-swatch{
+    width:20px; height:20px; border-radius:50%; border:2px solid var(--border);
+    padding:0; transition:border-color .15s ease, transform .15s ease;
+  }
+  .color-swatch:hover{transform:scale(1.1);}
+  .color-swatch.selected{border-color:var(--amber); box-shadow:0 0 0 2px rgba(255,122,51,.2);}
+  .color-label{color:var(--muted); font-size:.74rem; margin-left:.2rem;}
   .card-footer{display:flex; justify-content:space-between; align-items:center; margin-top:auto;}
   .price{font-family:'IBM Plex Mono', monospace; font-weight:500; font-size:1.05rem;}
   .price small{color:var(--muted); font-size:.68rem; font-weight:400;}
@@ -454,7 +462,12 @@ const products = [
   {id:2, brand:'Samsung', name:'Galaxy S24', spec:'6.2" · 256 Go · 4000 mAh', price:165000},
   {id:3, brand:'Xiaomi', name:'Redmi Note 13 Pro', spec:'6.67" · 256 Go · 5100 mAh', price:52000},
   {id:4, brand:'Samsung', name:'Galaxy A55', spec:'6.6" · 128 Go · 5000 mAh', price:68000},
-  {id:5, brand:'Apple', name:'iPhone 13', spec:'6.1" · 128 Go · 3227 mAh', price:128000},
+  {id:5, brand:'Apple', name:'iPhone 13', spec:'6.1" · 128 Go', battery:'3227 mAh', price:128000,
+    colors:[
+      {name:'Rose', hex:'#F4C7D6'},
+      {name:'Noir', hex:'#1C1C1E'},
+      {name:'Bleu', hex:'#4F6D8C'}
+    ]},
   {id:6, brand:'Oppo', name:'Reno 11', spec:'6.7" · 256 Go · 4800 mAh', price:61000},
   {id:7, brand:'Xiaomi', name:'Poco X6 Pro', spec:'6.67" · 512 Go · 5000 mAh', price:58000},
   {id:8, brand:'Samsung', name:'Galaxy A15', spec:'6.5" · 128 Go · 5000 mAh', price:34000},
@@ -474,8 +487,9 @@ const wilayas = [
   "57 - El M'Ghair","58 - El Meniaa"
 ];
 
-let cart = []; // {id, qty}
+let cart = []; // {id, qty, color}
 let activeFilter = 'Tous';
+let selectedColors = {}; // {productId: colorName}
 
 // ---- Init ----
 function init(){
@@ -504,7 +518,18 @@ function renderProducts(){
   const grid = document.getElementById('productGrid');
   const list = activeFilter === 'Tous' ? products : products.filter(p => p.brand === activeFilter);
   document.getElementById('emptyState').style.display = list.length ? 'none' : 'block';
-  grid.innerHTML = list.map(p => `
+  grid.innerHTML = list.map(p => {
+    if(p.colors && !selectedColors[p.id]) selectedColors[p.id] = p.colors[0].name;
+    const colorRow = p.colors ? `
+      <div class="color-row" data-id="${p.id}">
+        ${p.colors.map(c => `
+          <button class="color-swatch ${selectedColors[p.id]===c.name ? 'selected' : ''}"
+            style="background:${c.hex};" data-color="${c.name}" title="${c.name}" aria-label="${c.name}"></button>
+        `).join('')}
+        <span class="color-label mono">${selectedColors[p.id]}</span>
+      </div>` : '';
+    const batteryChip = p.battery ? `<span>🔋 ${p.battery}</span>` : '';
+    return `
     <div class="card">
       <div class="card-visual">
         <span class="stock-badge">EN STOCK</span>
@@ -513,15 +538,30 @@ function renderProducts(){
         </div>
       </div>
       <h3>${p.name}</h3>
-      <div class="specs mono"><span>${p.spec}</span></div>
+      <div class="specs mono"><span>${p.spec}</span>${batteryChip}</div>
+      ${colorRow}
       <div class="card-footer">
         <div class="price">${p.price.toLocaleString('fr-FR')} <small>DA</small></div>
         <button class="add-btn" data-id="${p.id}">Ajouter</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
+
+  grid.querySelectorAll('.color-swatch').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const row = btn.closest('.color-row');
+      const id = parseInt(row.dataset.id);
+      selectedColors[id] = btn.dataset.color;
+      renderProducts();
+    });
+  });
   grid.querySelectorAll('.add-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=> addToCart(parseInt(btn.dataset.id)));
+    btn.addEventListener('click', ()=>{
+      const id = parseInt(btn.dataset.id);
+      addToCart(id, selectedColors[id] || null);
+    });
   });
 }
 
@@ -532,18 +572,18 @@ function renderWilayas(){
 }
 
 // ---- Cart logic ----
-function addToCart(id){
-  const item = cart.find(c => c.id === id);
-  if(item){ item.qty += 1; } else { cart.push({id, qty:1}); }
+function addToCart(id, color){
+  const item = cart.find(c => c.id === id && c.color === color);
+  if(item){ item.qty += 1; } else { cart.push({id, qty:1, color: color || null}); }
   updateCartUI();
   openDrawer();
 }
 
-function changeQty(id, delta){
-  const item = cart.find(c => c.id === id);
+function changeQty(id, color, delta){
+  const item = cart.find(c => c.id === id && c.color === color);
   if(!item) return;
   item.qty += delta;
-  if(item.qty <= 0){ cart = cart.filter(c => c.id !== id); }
+  if(item.qty <= 0){ cart = cart.filter(c => !(c.id === id && c.color === color)); }
   updateCartUI();
 }
 
@@ -564,21 +604,22 @@ function updateCartUI(){
   } else {
     drawerItems.innerHTML = cart.map(c => {
       const p = products.find(p => p.id === c.id);
+      const colorTag = c.color ? ` · ${c.color}` : '';
       return `
         <div class="drawer-item">
           <div>
-            <div class="name">${p.name}</div>
+            <div class="name">${p.name}${colorTag}</div>
             <div class="meta">${(p.price*c.qty).toLocaleString('fr-FR')} DA</div>
           </div>
           <div class="qty-ctrl">
-            <button data-id="${p.id}" data-delta="-1">−</button>
+            <button data-id="${p.id}" data-color="${c.color||''}" data-delta="-1">−</button>
             <span class="mono">${c.qty}</span>
-            <button data-id="${p.id}" data-delta="1">+</button>
+            <button data-id="${p.id}" data-color="${c.color||''}" data-delta="1">+</button>
           </div>
         </div>`;
     }).join('');
     drawerItems.querySelectorAll('.qty-ctrl button').forEach(btn=>{
-      btn.addEventListener('click', ()=> changeQty(parseInt(btn.dataset.id), parseInt(btn.dataset.delta)));
+      btn.addEventListener('click', ()=> changeQty(parseInt(btn.dataset.id), btn.dataset.color || null, parseInt(btn.dataset.delta)));
     });
   }
 
@@ -591,7 +632,8 @@ function updateCartUI(){
     ? '<div class="recap-row" style="border:none; color:var(--muted);">Aucun article</div>'
     : cart.map(c=>{
         const p = products.find(p=>p.id===c.id);
-        return `<div class="recap-row"><span>${p.name} × ${c.qty}</span><span class="mono">${(p.price*c.qty).toLocaleString('fr-FR')} DA</span></div>`;
+        const colorTag = c.color ? ` (${c.color})` : '';
+        return `<div class="recap-row"><span>${p.name}${colorTag} × ${c.qty}</span><span class="mono">${(p.price*c.qty).toLocaleString('fr-FR')} DA</span></div>`;
       }).join('');
 }
 
@@ -642,7 +684,8 @@ function bindEvents(){
 
     const itemsText = cart.map(c=>{
       const p = products.find(p=>p.id===c.id);
-      return `${p.name} x${c.qty} — ${(p.price*c.qty).toLocaleString('fr-FR')} DA`;
+      const colorTag = c.color ? ` (${c.color})` : '';
+      return `${p.name}${colorTag} x${c.qty} — ${(p.price*c.qty).toLocaleString('fr-FR')} DA`;
     }).join('\n');
 
     const text =
