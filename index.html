@@ -186,6 +186,16 @@
     background:rgba(55,214,122,.12); color:var(--green); border:1px solid rgba(55,214,122,.3);
     padding:.15rem .5rem; border-radius:999px; font-family:'IBM Plex Mono', monospace;
   }
+  .mini-phone-screen{
+    position:absolute; inset:4px 4px 4px 4px; border-radius:9px;
+    background:linear-gradient(200deg, rgba(255,255,255,.08), transparent 55%);
+  }
+  .cam-dot{
+    position:absolute; width:7px; height:7px; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #fff8, #0006 70%);
+    border:1px solid rgba(255,255,255,.25);
+  }
+  .cam-dot.big{width:14px; height:14px;}
   .card h3{font-size:1.02rem; font-weight:600;}
   .specs{color:var(--muted); font-size:.76rem; display:flex; gap:.6rem; flex-wrap:wrap;}
   .specs span{display:flex; align-items:center; gap:.3rem;}
@@ -458,20 +468,51 @@
 <script>
 // ---- Data ----
 const products = [
-  {id:1, brand:'Apple', name:'iPhone 15', spec:'6.1" · 128 Go · 3349 mAh', price:185000},
-  {id:2, brand:'Samsung', name:'Galaxy S24', spec:'6.2" · 256 Go · 4000 mAh', price:165000},
-  {id:3, brand:'Xiaomi', name:'Redmi Note 13 Pro', spec:'6.67" · 256 Go · 5100 mAh', price:52000},
-  {id:4, brand:'Samsung', name:'Galaxy A55', spec:'6.6" · 128 Go · 5000 mAh', price:68000},
+  {id:1, brand:'Apple', name:'iPhone 15', spec:'6.1" · 128 Go · 3349 mAh', price:185000,
+    tint:['#9C958B','#3A3733'], cam:'apple'},
+  {id:2, brand:'Samsung', name:'Galaxy S24', spec:'6.2" · 256 Go · 4000 mAh', price:165000,
+    tint:['#8B7FC7','#332C50'], cam:'samsung'},
+  {id:3, brand:'Xiaomi', name:'Redmi Note 13 Pro', spec:'6.67" · 256 Go · 5100 mAh', price:52000,
+    tint:['#49A38F','#153230'], cam:'xiaomi'},
+  {id:4, brand:'Samsung', name:'Galaxy A55', spec:'6.6" · 128 Go · 5000 mAh', price:68000,
+    tint:['#3E63A0','#182238'], cam:'samsung'},
   {id:5, brand:'Apple', name:'iPhone 13', spec:'6.1" · 128 Go', battery:'3227 mAh', price:128000,
+    cam:'apple',
     colors:[
       {name:'Rose', hex:'#F4C7D6'},
       {name:'Noir', hex:'#1C1C1E'},
       {name:'Bleu', hex:'#4F6D8C'}
     ]},
-  {id:6, brand:'Oppo', name:'Reno 11', spec:'6.7" · 256 Go · 4800 mAh', price:61000},
-  {id:7, brand:'Xiaomi', name:'Poco X6 Pro', spec:'6.67" · 512 Go · 5000 mAh', price:58000},
-  {id:8, brand:'Samsung', name:'Galaxy A15', spec:'6.5" · 128 Go · 5000 mAh', price:34000},
+  {id:6, brand:'Oppo', name:'Reno 11', spec:'6.7" · 256 Go · 4800 mAh', price:61000,
+    tint:['#7A6BD9','#291F52'], cam:'oppo'},
+  {id:7, brand:'Xiaomi', name:'Poco X6 Pro', spec:'6.67" · 512 Go · 5000 mAh', price:58000,
+    tint:['#F2C94C','#2B2B2B'], cam:'xiaomi'},
+  {id:8, brand:'Samsung', name:'Galaxy A15', spec:'6.5" · 128 Go · 5000 mAh', price:34000,
+    tint:['#4C7A99','#152431'], cam:'samsung'},
 ];
+
+const camDots = {
+  apple:   [{t:18,l:20},{t:18,l:45},{t:38,l:32}],
+  samsung: [{t:14,l:26},{t:31,l:26},{t:48,l:26}],
+  xiaomi:  [{t:15,l:20},{t:15,l:40},{t:33,l:20},{t:33,l:40}],
+  oppo:    [{t:20,l:28,big:true}]
+};
+
+function shadeHex(hex, amt){
+  const n = parseInt(hex.slice(1),16);
+  const r = Math.min(255, Math.max(0, (n>>16) + amt));
+  const g = Math.min(255, Math.max(0, ((n>>8)&0xff) + amt));
+  const b = Math.min(255, Math.max(0, (n&0xff) + amt));
+  return '#' + ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1);
+}
+
+function tintFor(p){
+  if(p.colors){
+    const c = p.colors.find(c => c.name === selectedColors[p.id]) || p.colors[0];
+    return [shadeHex(c.hex, 15), shadeHex(c.hex, -90)];
+  }
+  return p.tint || ['#8A93A3','#1C2027'];
+}
 
 const wilayas = [
   "01 - Adrar","02 - Chlef","03 - Laghouat","04 - Oum El Bouaghi","05 - Batna","06 - Béjaïa",
@@ -529,12 +570,17 @@ function renderProducts(){
         <span class="color-label mono">${selectedColors[p.id]}</span>
       </div>` : '';
     const batteryChip = p.battery ? `<span>🔋 ${p.battery}</span>` : '';
+    const [tintA, tintB] = tintFor(p);
+    const dots = (camDots[p.cam] || []).map(d =>
+      `<span class="cam-dot ${d.big?'big':''}" style="top:${d.t}%; left:${d.l}%;"></span>`
+    ).join('');
     return `
     <div class="card">
-      <div class="card-visual">
+      <div class="card-visual" style="background:radial-gradient(120% 100% at 30% 10%, ${tintA}22, var(--surface-2) 70%);">
         <span class="stock-badge">EN STOCK</span>
-        <div class="mini-phone" style="background:linear-gradient(160deg,#1E232B,#0D0F12 70%); border-color:var(--border);">
-          <div class="mini-phone" style="position:absolute; inset:5px; background:radial-gradient(120% 90% at 30% 0%, rgba(91,140,255,.25), transparent 60%), linear-gradient(200deg,#191D24,#0B0C0F); border:none; width:auto; height:auto;"></div>
+        <div class="mini-phone" style="background:linear-gradient(160deg, ${tintA}, ${tintB} 75%); border-color:${tintA}55;">
+          <div class="mini-phone-screen"></div>
+          ${dots}
         </div>
       </div>
       <h3>${p.name}</h3>
