@@ -196,6 +196,10 @@
     border:1px solid rgba(255,255,255,.25);
   }
   .cam-dot.big{width:14px; height:14px;}
+  .product-photo{
+    width:100%; height:100%; object-fit:contain; padding:.5rem;
+    filter:drop-shadow(0 10px 18px rgba(0,0,0,.45));
+  }
   .card h3{font-size:1.02rem; font-weight:600;}
   .specs{color:var(--muted); font-size:.76rem; display:flex; gap:.6rem; flex-wrap:wrap;}
   .specs span{display:flex; align-items:center; gap:.3rem;}
@@ -477,7 +481,7 @@ const products = [
   {id:4, brand:'Samsung', name:'Galaxy A55', spec:'6.6" · 128 Go · 5000 mAh', price:68000,
     tint:['#3E63A0','#182238'], cam:'samsung'},
   {id:5, brand:'Apple', name:'iPhone 13', spec:'6.1" · 128 Go', battery:'3227 mAh', price:128000,
-    cam:'apple',
+    cam:'apple', image:'iphone13.jpg',
     colors:[
       {name:'Rose', hex:'#F4C7D6'},
       {name:'Noir', hex:'#1C1C1E'},
@@ -574,14 +578,17 @@ function renderProducts(){
     const dots = (camDots[p.cam] || []).map(d =>
       `<span class="cam-dot ${d.big?'big':''}" style="top:${d.t}%; left:${d.l}%;"></span>`
     ).join('');
+    const visual = p.image
+      ? `<img class="product-photo" src="${p.image}" alt="${p.name}" loading="lazy">`
+      : `<div class="mini-phone" style="background:linear-gradient(160deg, ${tintA}, ${tintB} 75%); border-color:${tintA}55;">
+          <div class="mini-phone-screen"></div>
+          ${dots}
+        </div>`;
     return `
     <div class="card">
       <div class="card-visual" style="background:radial-gradient(120% 100% at 30% 10%, ${tintA}22, var(--surface-2) 70%);">
         <span class="stock-badge">EN STOCK</span>
-        <div class="mini-phone" style="background:linear-gradient(160deg, ${tintA}, ${tintB} 75%); border-color:${tintA}55;">
-          <div class="mini-phone-screen"></div>
-          ${dots}
-        </div>
+        ${visual}
       </div>
       <h3>${p.name}</h3>
       <div class="specs mono"><span>${p.spec}</span>${batteryChip}</div>
