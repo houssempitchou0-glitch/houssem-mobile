@@ -407,9 +407,9 @@
 
       <div id="confirmation">
         <div class="led-big">✓</div>
-        <h3>Commande enregistrée</h3>
-        <p>Nous vous contactons sous peu pour confirmer la livraison.</p>
-        <a class="btn" id="waConfirm" target="_blank">Confirmer sur WhatsApp</a>
+        <h3 id="confirmTitle">Commande enregistrée</h3>
+        <p id="confirmText">Nous vous contactons sous peu pour confirmer la livraison.</p>
+        <a class="btn" id="waConfirm" target="_blank" style="display:none;">Confirmer sur WhatsApp</a>
       </div>
     </div>
 
@@ -624,12 +624,17 @@ function bindEvents(){
     addressField.style.display = 'none';
   });
 
-  document.getElementById('checkoutForm').addEventListener('submit', (e)=>{
+  // Telegram bot: sends order notifications directly, no app needed on the client's side.
+  const TELEGRAM_BOT_TOKEN = '8984049075:AAGW0uczWmSlgIa6cavV_MOpA5DyGPrTcqc';
+  const TELEGRAM_CHAT_ID = '1772163554';
+
+  document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     e.preventDefault();
     if(cart.length === 0){ alert('Votre panier est vide.'); return; }
 
     const name = document.getElementById('fullname').value;
     const phone = document.getElementById('phone').value;
+    const instagram = document.getElementById('instagram').value;
     const wilaya = document.getElementById('wilaya').value;
     const commune = document.getElementById('commune').value;
     const delivery = document.querySelector('input[name="delivery"]:checked').value === 'domicile' ? 'À domicile' : 'Stop Desk';
@@ -637,17 +642,50 @@ function bindEvents(){
 
     const itemsText = cart.map(c=>{
       const p = products.find(p=>p.id===c.id);
-      return `${p.name} x${c.qty}`;
-    }).join(', ');
+      return `${p.name} x${c.qty} — ${(p.price*c.qty).toLocaleString('fr-FR')} DA`;
+    }).join('\n');
 
-    const message = `Bonjour, je confirme ma commande Raha Phone.%0A` +
-      `Nom: ${name}%0ATéléphone: ${phone}%0AWilaya: ${wilaya}%0ACommune: ${commune}%0A` +
-      `Livraison: ${delivery}${address ? '%0AAdresse: ' + encodeURIComponent(address) : ''}%0A` +
-      `Articles: ${encodeURIComponent(itemsText)}%0ATotal: ${cartTotal().toLocaleString('fr-FR')} DA`;
+    const text =
+      `🛒 Nouvelle commande — Raha Phone\n\n` +
+      `👤 Nom: ${name}\n` +
+      `📞 Téléphone: ${phone}\n` +
+      (instagram ? `📷 Instagram: ${instagram}\n` : '') +
+      `📍 Wilaya: ${wilaya}\n` +
+      `🏘️ Commune: ${commune}\n` +
+      `🚚 Livraison: ${delivery}\n` +
+      (address ? `🏠 Adresse: ${address}\n` : '') +
+      `\n📦 Articles:\n${itemsText}\n\n` +
+      `💰 Total: ${cartTotal().toLocaleString('fr-FR')} DA\n` +
+      `💵 Paiement à la livraison`;
 
-    document.getElementById('waConfirm').href = `https://wa.me/213774597291?text=${message}`;
-    document.getElementById('checkoutForm').style.display = 'none';
-    document.getElementById('confirmation').style.display = 'block';
+    const submitBtn = document.querySelector('#checkoutForm button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Envoi en cours...';
+
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text })
+      });
+      const data = await res.json();
+      if(!data.ok) throw new Error('Telegram API error');
+
+      document.getElementById('confirmTitle').textContent = 'Commande enregistrée';
+      document.getElementById('confirmText').textContent = 'Votre commande a été envoyée. Nous vous contactons sous peu pour confirmer la livraison.';
+      document.getElementById('waConfirm').style.display = 'none';
+    } catch(err) {
+      document.getElementById('confirmTitle').textContent = "Commande reçue, un souci d'envoi";
+      document.getElementById('confirmText').textContent = "Votre commande est prête mais n'a pas pu être transmise automatiquement. Contactez-nous directement :";
+      document.getElementById('waConfirm').href = 'https://wa.me/213774597291';
+      document.getElementById('waConfirm').textContent = 'Nous contacter sur WhatsApp';
+      document.getElementById('waConfirm').style.display = 'inline-flex';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Confirmer ma commande';
+      document.getElementById('checkoutForm').style.display = 'none';
+      document.getElementById('confirmation').style.display = 'block';
+    }
   });
 }
 
